@@ -1,37 +1,624 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Team Hours Tracker</title><style>
-:root{font-family:Inter,system-ui,-apple-system,sans-serif;color:#182b41;background:#f3f6fa}*{box-sizing:border-box}body{margin:0}header{background:#17283e;color:white;padding:18px max(22px,calc((100vw - 1050px)/2));display:flex;justify-content:space-between;align-items:center}header strong{font-size:20px}main{max-width:1050px;margin:32px auto;padding:0 18px}.card{background:white;border:1px solid #dfe6ed;border-radius:14px;padding:24px;box-shadow:0 2px 9px #19334a0a;margin-bottom:20px}.login{max-width:430px;margin:90px auto}.muted{color:#657487}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.stats{margin-bottom:20px}.stat{background:white;border:1px solid #dfe6ed;padding:20px;border-radius:12px}.stat strong{display:block;font-size:28px;margin-top:8px}label{font-weight:600;font-size:13px;display:block;margin-bottom:7px}input,textarea{width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:8px;font:inherit}textarea{resize:vertical}button{background:#245cb0;color:white;border:0;border-radius:8px;padding:11px 17px;font:inherit;cursor:pointer}button:hover{filter:brightness(.94)}button.secondary{background:#edf2f7;color:#233a55}button.danger{background:#fff0f0;color:#a61e26}.row{display:flex;gap:12px;align-items:end;flex-wrap:wrap}.row>div{flex:1;min-width:150px}.actions{display:flex;gap:8px;flex-wrap:wrap}table{width:100%;border-collapse:collapse}th,td{text-align:left;border-bottom:1px solid #e8edf2;padding:12px 10px;font-size:14px}th{color:#617187;font-size:12px}td button{padding:6px 10px;font-size:12px}.scroll{overflow-x:auto}.error{color:#a61e26}.success{color:#167447}#app{display:none}#logout{display:none}h1,h2{margin:0 0 12px}h1{font-size:24px}h2{font-size:18px}p{line-height:1.5}@media(max-width:650px){.grid{grid-template-columns:1fr}.card{padding:18px}header{padding:16px 20px}main{margin:18px auto}}
-</style></head><body><header><strong>◷ Team Hours Tracker</strong><span><span id="who"></span> <button id="logout" class="secondary">Log out</button></span></header><main>
-<section id="login" class="card login"><h1>Enter your access code</h1><p class="muted">Use the private code provided by your team administrator. No email is needed.</p><form id="loginForm"><label for="code">Access code</label><input id="code" type="password" autocomplete="off" required placeholder="Your unique code"><p><button type="submit">Continue</button></p><p id="loginMsg" role="alert"></p></form></section>
-<section id="app"><h1>Hours overview</h1><p class="muted" id="roleLabel"></p><div class="grid stats"><div class="stat"><span class="muted">Total hours</span><strong id="totalHours">0.00</strong></div><div class="stat"><span class="muted">Total Value In</span><strong id="totalIn">0.00</strong></div><div class="stat"><span class="muted">Total Value Out</span><strong id="totalOut">0.00</strong></div></div>
-<section class="card"><h2 id="formTitle">Add time entry</h2><form id="entryForm"><div class="row"><div><label for="workDate">Date</label><input type="date" id="workDate" required></div><div><label for="hours">Hours</label><input type="number" id="hours" step="0.01" min="0.01" max="24" required placeholder="8"></div><div><label for="valueIn">Value In</label><input type="number" id="valueIn" step="0.01" min="0" required value="0"></div><div><label for="valueOut">Value Out</label><input type="number" id="valueOut" step="0.01" min="0" required value="0"></div></div><p><label for="notes">Notes (optional)</label><textarea id="notes" rows="2" maxlength="500"></textarea></p><div class="actions"><button type="submit" id="saveBtn">Save entry</button><button type="button" id="cancelEdit" class="secondary" hidden>Cancel edit</button></div><p id="entryMsg" role="status"></p></form></section>
-<section class="card"><div class="row" style="justify-content:space-between;align-items:center"><div><h2>Saved entries</h2><p class="muted" id="viewLabel">Your entries</p></div><div class="actions"><button id="refresh" class="secondary">Refresh</button><button id="csv" class="secondary">Export CSV</button></div></div><div class="scroll"><table><thead><tr><th>User</th><th>Date</th><th>Hours</th><th>Value In</th><th>Value Out</th><th>Notes</th><th>Actions</th></tr></thead><tbody id="rows"></tbody></table></div><p id="listMsg" class="muted"></p></section></section></main>
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Team Hours Tracker</title>
+
+<style>
+:root {
+  font-family: Inter,system-ui,-apple-system,sans-serif;
+  color: #182b41;
+  background: #f3f6fa;
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+header {
+  background: #17283e;
+  color: white;
+  padding: 18px max(22px,calc((100vw - 1050px)/2));
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+header strong { font-size: 20px; }
+main { max-width: 1050px; margin: 32px auto; padding: 0 18px; }
+.card {
+  background: white;
+  border: 1px solid #dfe6ed;
+  border-radius: 14px;
+  padding: 24px;
+  box-shadow: 0 2px 9px #19334a0a;
+  margin-bottom: 20px;
+}
+.login { max-width: 430px; margin: 90px auto; }
+.muted { color: #657487; }
+.grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
+.stats { margin-bottom: 20px; }
+.stat {
+  background: white;
+  border: 1px solid #dfe6ed;
+  padding: 20px;
+  border-radius: 12px;
+}
+.stat strong { display: block; font-size: 28px; margin-top: 8px; }
+label { font-weight: 600; font-size: 13px; display: block; margin-bottom: 7px; }
+input,textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font: inherit;
+}
+textarea { resize: vertical; }
+button {
+  background: #245cb0;
+  color: white;
+  border: 0;
+  border-radius: 8px;
+  padding: 11px 17px;
+  font: inherit;
+  cursor: pointer;
+}
+button:hover { filter: brightness(.94); }
+button.secondary { background: #edf2f7; color: #233a55; }
+button.danger { background: #fff0f0; color: #a61e26; }
+.row { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; }
+.row > div { flex: 1; min-width: 150px; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+table { width: 100%; border-collapse: collapse; }
+th,td {
+  text-align: left;
+  border-bottom: 1px solid #e8edf2;
+  padding: 12px 10px;
+  font-size: 14px;
+}
+th { color: #617187; font-size: 12px; }
+td button { padding: 6px 10px; font-size: 12px; }
+.scroll { overflow-x: auto; }
+.error { color: #a61e26; }
+.success { color: #167447; }
+#app { display: none; }
+#logout { display: none; }
+h1,h2 { margin: 0 0 12px; }
+h1 { font-size: 24px; }
+h2 { font-size: 18px; }
+p { line-height: 1.5; }
+
+@media(max-width:650px) {
+  .grid { grid-template-columns: 1fr; }
+  .card { padding: 18px; }
+  header { padding: 16px 20px; }
+  main { margin: 18px auto; }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <strong>◷ Team Hours Tracker</strong>
+  <span>
+    <span id="who"></span>
+    <button id="logout" class="secondary">Log out</button>
+  </span>
+</header>
+
+<main>
+
+<section id="login" class="card login">
+  <h1>Enter your access code</h1>
+  <p class="muted">
+    Use the private code provided by your team administrator.
+    No email is needed.
+  </p>
+
+  <form id="loginForm">
+    <label for="code">Access code</label>
+    <input
+      id="code"
+      type="password"
+      autocomplete="off"
+      required
+      placeholder="Your unique code"
+    >
+    <p><button type="submit">Continue</button></p>
+    <p id="loginMsg" role="alert"></p>
+  </form>
+</section>
+
+<section id="app">
+
+  <h1>Hours overview</h1>
+  <p class="muted" id="roleLabel"></p>
+
+  <div class="grid stats">
+    <div class="stat">
+      <span class="muted">Total hours</span>
+      <strong id="totalHours">0.00</strong>
+    </div>
+    <div class="stat">
+      <span class="muted">Total Value In</span>
+      <strong id="totalIn">0.00</strong>
+    </div>
+    <div class="stat">
+      <span class="muted">Total Value Out</span>
+      <strong id="totalOut">0.00</strong>
+    </div>
+  </div>
+
+  <section class="card">
+    <h2 id="formTitle">Add time entry</h2>
+
+    <form id="entryForm">
+      <div class="row">
+
+        <div>
+          <label for="workDate">Date</label>
+          <input type="date" id="workDate" required>
+        </div>
+
+        <div>
+          <label for="hours">Hours</label>
+          <input
+            type="number"
+            id="hours"
+            step="0.01"
+            min="0.01"
+            max="24"
+            required
+            placeholder="8"
+          >
+        </div>
+
+        <div>
+          <label for="valueIn">Value In</label>
+          <input
+            type="number"
+            id="valueIn"
+            step="0.01"
+            min="0"
+            required
+            value="0"
+          >
+        </div>
+
+        <div>
+          <label for="valueOut">Value Out</label>
+          <input
+            type="number"
+            id="valueOut"
+            step="0.01"
+            min="0"
+            required
+            value="0"
+          >
+        </div>
+
+      </div>
+
+      <p>
+        <label for="notes">Notes (optional)</label>
+        <textarea id="notes" rows="2" maxlength="500"></textarea>
+      </p>
+
+      <div class="actions">
+        <button type="submit" id="saveBtn">Save entry</button>
+        <button
+          type="button"
+          id="cancelEdit"
+          class="secondary"
+          hidden
+        >
+          Cancel edit
+        </button>
+      </div>
+
+      <p id="entryMsg" role="status"></p>
+    </form>
+  </section>
+
+  <section class="card">
+    <div
+      class="row"
+      style="justify-content:space-between;align-items:center"
+    >
+      <div>
+        <h2>Saved entries</h2>
+        <p class="muted" id="viewLabel">Your entries</p>
+      </div>
+
+      <div class="actions">
+        <button id="refresh" class="secondary">Refresh</button>
+        <button id="csv" class="secondary">Export CSV</button>
+      </div>
+    </div>
+
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>User</th>
+            <th>Date</th>
+            <th>Hours</th>
+            <th>Value In</th>
+            <th>Value Out</th>
+            <th>Notes</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+
+    <p id="listMsg" class="muted"></p>
+  </section>
+
+</section>
+</main>
+
 <script>
 'use strict';
-// PUBLIC configuration only. Never paste a service-role/secret key or a user's access code here.
-const SUPABASE_PROJECT_URL = 'https://fjuyllxjjpkcnwvhkkgt.supabase.co';
-const API_URL = `${SUPABASE_PROJECT_URL}/functions/v1/hours-api`;
-const $=id=>document.getElementById(id);
-let accessCode='', user=null, entries=[], editing=null;
-const escapeHtml=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const number=n=>Number(n||0).toFixed(2);
-const localDate=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
-$('workDate').value=localDate();
-async function call(action,extra={}){
- const res=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,code:accessCode,...extra})});
- let data;try{data=await res.json()}catch{throw Error('Unable to contact server')}
- if(!res.ok)throw Error(data.error||`Request failed (${res.status})`);
- return data;
+
+// Public configuration only.
+// Never place a service-role key or access code here.
+
+const SUPABASE_PROJECT_URL =
+  'https://fjuyllxjjpkcnwvhkkgt.supabase.co';
+
+const API_URL =
+  `${SUPABASE_PROJECT_URL}/functions/v1/hours-api`;
+
+const $ = id => document.getElementById(id);
+
+let accessCode = '';
+let user = null;
+let entries = [];
+let editing = null;
+
+const escapeHtml = s =>
+  String(s ?? '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  }[c]));
+
+const number = n => Number(n || 0).toFixed(2);
+
+const localDate = () => {
+  const d = new Date();
+
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+};
+
+$('workDate').value = localDate();
+
+// ========================================
+// API REQUEST
+// ========================================
+
+async function call(action, extra = {}) {
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      action,
+      code: accessCode,
+      ...extra
+    })
+  });
+
+  let data;
+
+  try {
+    data = await res.json();
+  } catch {
+    throw Error('Unable to contact server');
+  }
+
+  if (!res.ok) {
+    throw Error(data.error || `Request failed (${res.status})`);
+  }
+
+  return data;
 }
-$('loginForm').addEventListener('submit',async e=>{e.preventDefault();$('loginMsg').textContent='Checking code…';accessCode=$('code').value.trim();try{const data=await call('login');user=data.user;$('code').value='';$('login').hidden=true;$('login').style.display='none';$('app').style.display='block';$('logout').style.display='inline-block';$('who').textContent=user.name;$('roleLabel').textContent=user.is_admin?'Admin: view all users, edit only your own entries':'Your hours and values';$('viewLabel').textContent=user.is_admin?'All six users':'Only your entries';$('loginMsg').textContent='';await load()}catch(err){accessCode='';$('loginMsg').textContent=err.message;$('loginMsg').className='error'}});
-$('logout').onclick=()=>{accessCode='';user=null;entries=[];editing=null;$('app').style.display='none';$('login').style.display='block';$('logout').style.display='none';$('who').textContent='';$('rows').replaceChildren();$('entryMsg').textContent=''};
-async function load(){try{const data=await call('list');entries=data.entries||[];render();$('listMsg').textContent=`${entries.length} entries loaded`;}catch(err){$('listMsg').textContent=err.message;}}
-function render(){const sum=k=>entries.reduce((a,e)=>a+Number(e[k]||0),0);$('totalHours').textContent=number(sum('hours'));$('totalIn').textContent=number(sum('value_in'));$('totalOut').textContent=number(sum('value_out'));
- $('rows').innerHTML=entries.map(e=>{const own=e.user_id===user.id;return `<tr><td>${escapeHtml(e.team_users?.display_name||user.name)}</td><td>${escapeHtml(e.work_date)}</td><td>${number(e.hours)}</td><td>${number(e.value_in)}</td><td>${number(e.value_out)}</td><td>${escapeHtml(e.notes)}</td><td>${own?`<button class="secondary" data-edit="${escapeHtml(e.id)}">Edit</button> <button class="danger" data-delete="${escapeHtml(e.id)}">Delete</button>`:'—'}</td></tr>`}).join('')||'<tr><td colspan="7">No entries yet.</td></tr>';
+
+// ========================================
+// LOGIN
+// ========================================
+
+$('loginForm').addEventListener('submit', async e => {
+  e.preventDefault();
+
+  $('loginMsg').textContent = 'Checking code…';
+  accessCode = $('code').value.trim();
+
+  try {
+    const data = await call('login');
+
+    user = data.user;
+
+    $('code').value = '';
+    $('login').hidden = true;
+    $('login').style.display = 'none';
+    $('app').style.display = 'block';
+    $('logout').style.display = 'inline-block';
+
+    $('who').textContent = user.name;
+
+    $('roleLabel').textContent = user.is_admin
+      ? 'Admin: view, edit and delete entries for all users'
+      : 'Your hours and values';
+
+    $('viewLabel').textContent = user.is_admin
+      ? 'All six users'
+      : 'Only your entries';
+
+    $('loginMsg').textContent = '';
+
+    await load();
+
+  } catch (err) {
+    accessCode = '';
+    $('loginMsg').textContent = err.message;
+    $('loginMsg').className = 'error';
+  }
+});
+
+// ========================================
+// LOGOUT
+// ========================================
+
+$('logout').onclick = () => {
+  accessCode = '';
+  user = null;
+  entries = [];
+  editing = null;
+
+  $('app').style.display = 'none';
+  $('login').style.display = 'block';
+  $('logout').style.display = 'none';
+
+  $('who').textContent = '';
+  $('rows').replaceChildren();
+  $('entryMsg').textContent = '';
+};
+
+// ========================================
+// LOAD ENTRIES
+// ========================================
+
+async function load() {
+  try {
+    const data = await call('list');
+
+    entries = data.entries || [];
+
+    render();
+
+    $('listMsg').textContent =
+      `${entries.length} entries loaded`;
+
+  } catch (err) {
+    $('listMsg').textContent = err.message;
+  }
 }
-$('rows').addEventListener('click',async e=>{const edit=e.target.closest('[data-edit]'),del=e.target.closest('[data-delete]');if(edit){const item=entries.find(x=>x.id===edit.dataset.edit&&x.user_id===user.id);if(!item)return;editing=item.id;$('workDate').value=item.work_date;$('hours').value=item.hours;$('valueIn').value=item.value_in;$('valueOut').value=item.value_out;$('notes').value=item.notes;$('formTitle').textContent='Edit time entry';$('saveBtn').textContent='Update entry';$('cancelEdit').hidden=false;window.scrollTo({top:0,behavior:'smooth'})}if(del){if(!confirm('Delete this entry?'))return;try{await call('delete',{id:del.dataset.delete});await load()}catch(err){$('listMsg').textContent=err.message}}});
-function resetForm(){$('entryForm').reset();$('workDate').value=localDate();$('valueIn').value='0';$('valueOut').value='0';editing=null;$('formTitle').textContent='Add time entry';$('saveBtn').textContent='Save entry';$('cancelEdit').hidden=true}
-$('cancelEdit').onclick=resetForm;
-$('entryForm').addEventListener('submit',async e=>{e.preventDefault();$('entryMsg').textContent='Saving…';try{await call('save',{entry:{...(editing?{id:editing}:{}),work_date:$('workDate').value,hours:Number($('hours').value),value_in:Number($('valueIn').value),value_out:Number($('valueOut').value),notes:$('notes').value}});resetForm();$('entryMsg').textContent='Saved successfully';$('entryMsg').className='success';await load()}catch(err){$('entryMsg').textContent=err.message;$('entryMsg').className='error'}});
-$('refresh').onclick=load;
-$('csv').onclick=()=>{const fields=['user','date','hours','value_in','value_out','notes'];const lines=[fields,...entries.map(e=>[e.team_users?.display_name||user.name,e.work_date,e.hours,e.value_in,e.value_out,e.notes])].map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(','));const url=URL.createObjectURL(new Blob([lines.join('\r\n')],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='team-hours.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
-</script></body></html>
+
+// ========================================
+// RENDER ENTRIES
+// ========================================
+
+function render() {
+  const sum = k =>
+    entries.reduce((a, e) => a + Number(e[k] || 0), 0);
+
+  $('totalHours').textContent = number(sum('hours'));
+  $('totalIn').textContent = number(sum('value_in'));
+  $('totalOut').textContent = number(sum('value_out'));
+
+  $('rows').innerHTML = entries.map(e => {
+
+    // Only admin can edit or delete entries.
+    const isAdmin = user?.is_admin === true;
+
+    return `
+      <tr>
+        <td>${escapeHtml(e.team_users?.display_name || user.name)}</td>
+        <td>${escapeHtml(e.work_date)}</td>
+        <td>${number(e.hours)}</td>
+        <td>${number(e.value_in)}</td>
+        <td>${number(e.value_out)}</td>
+        <td>${escapeHtml(e.notes)}</td>
+
+        <td>
+          ${isAdmin
+            ? `
+              <button
+                class="secondary"
+                data-edit="${escapeHtml(e.id)}"
+              >
+                Edit
+              </button>
+
+              <button
+                class="danger"
+                data-delete="${escapeHtml(e.id)}"
+              >
+                Delete
+              </button>
+            `
+            : '—'
+          }
+        </td>
+      </tr>
+    `;
+  }).join('') ||
+  '<tr><td colspan="7">No entries yet.</td></tr>';
+}
+
+// ========================================
+// EDIT / DELETE — ADMIN ONLY
+// ========================================
+
+$('rows').addEventListener('click', async e => {
+
+  if (user?.is_admin !== true) return;
+
+  const edit = e.target.closest('[data-edit]');
+  const del = e.target.closest('[data-delete]');
+
+  if (edit) {
+    const item = entries.find(
+      x => x.id === edit.dataset.edit
+    );
+
+    if (!item) return;
+
+    editing = item.id;
+
+    $('workDate').value = item.work_date;
+    $('hours').value = item.hours;
+    $('valueIn').value = item.value_in;
+    $('valueOut').value = item.value_out;
+    $('notes').value = item.notes || '';
+
+    $('formTitle').textContent = 'Edit time entry';
+    $('saveBtn').textContent = 'Update entry';
+    $('cancelEdit').hidden = false;
+
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  }
+
+  if (del) {
+    if (!confirm('Delete this entry?')) return;
+
+    try {
+      await call('delete', {
+        id: del.dataset.delete
+      });
+
+      await load();
+
+    } catch (err) {
+      $('listMsg').textContent = err.message;
+    }
+  }
+});
+
+// ========================================
+// RESET FORM
+// ========================================
+
+function resetForm() {
+  $('entryForm').reset();
+
+  $('workDate').value = localDate();
+  $('valueIn').value = '0';
+  $('valueOut').value = '0';
+
+  editing = null;
+
+  $('formTitle').textContent = 'Add time entry';
+  $('saveBtn').textContent = 'Save entry';
+  $('cancelEdit').hidden = true;
+}
+
+$('cancelEdit').onclick = resetForm;
+
+// ========================================
+// SAVE ENTRY
+// ========================================
+
+$('entryForm').addEventListener('submit', async e => {
+  e.preventDefault();
+
+  $('entryMsg').textContent = 'Saving…';
+
+  try {
+    await call('save', {
+      entry: {
+        ...(editing ? { id: editing } : {}),
+        work_date: $('workDate').value,
+        hours: Number($('hours').value),
+        value_in: Number($('valueIn').value),
+        value_out: Number($('valueOut').value),
+        notes: $('notes').value
+      }
+    });
+
+    resetForm();
+
+    $('entryMsg').textContent = 'Saved successfully';
+    $('entryMsg').className = 'success';
+
+    await load();
+
+  } catch (err) {
+    $('entryMsg').textContent = err.message;
+    $('entryMsg').className = 'error';
+  }
+});
+
+// ========================================
+// REFRESH
+// ========================================
+
+$('refresh').onclick = load;
+
+// ========================================
+// EXPORT CSV
+// ========================================
+
+$('csv').onclick = () => {
+  const fields = [
+    'user',
+    'date',
+    'hours',
+    'value_in',
+    'value_out',
+    'notes'
+  ];
+
+  const lines = [
+    fields,
+    ...entries.map(e => [
+      e.team_users?.display_name || user.name,
+      e.work_date,
+      e.hours,
+      e.value_in,
+      e.value_out,
+      e.notes
+    ])
+  ].map(r =>
+    r.map(v =>
+      '"' + String(v ?? '').replace(/"/g, '""') + '"'
+    ).join(',')
+  );
+
+  const url = URL.createObjectURL(
+    new Blob([lines.join('\r\n')], {
+      type: 'text/csv;charset=utf-8'
+    })
+  );
+
+  const a = document.createElement('a');
+
+  a.href = url;
+  a.download = 'team-hours.csv';
+  a.click();
+
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+</script>
+
+</body>
+</html>
