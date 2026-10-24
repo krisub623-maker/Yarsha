@@ -1,0 +1,431 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Team Summary | Team Hours Tracker</title>
+
+<style>
+:root{
+  font-family:Inter,system-ui,-apple-system,sans-serif;
+  color:#182b41;
+  background:#f3f6fa;
+}
+*{box-sizing:border-box}
+body{margin:0}
+header{
+  background:#17283e;
+  color:#fff;
+  padding:18px max(22px,calc((100vw - 1050px)/2));
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  flex-wrap:wrap;
+}
+header strong{font-size:20px}
+header a{color:white;text-decoration:underline}
+main{max-width:1050px;margin:32px auto;padding:0 18px}
+.card{
+  background:#fff;
+  border:1px solid #dfe6ed;
+  border-radius:14px;
+  padding:24px;
+  box-shadow:0 2px 9px #19334a0a;
+  margin-bottom:20px;
+}
+.login{max-width:440px;margin:75px auto}
+.muted{color:#657487}
+.error{color:#a61e26}
+.grid{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:14px;
+  margin-bottom:20px;
+}
+.stat{
+  background:#fff;
+  border:1px solid #dfe6ed;
+  padding:20px;
+  border-radius:12px;
+}
+.stat strong{
+  display:block;
+  font-size:28px;
+  margin-top:8px;
+}
+label{
+  font-weight:600;
+  font-size:13px;
+  display:block;
+  margin-bottom:7px;
+}
+input{
+  width:100%;
+  padding:12px;
+  border:1px solid #cbd5e1;
+  border-radius:8px;
+  font:inherit;
+}
+button{
+  background:#245cb0;
+  color:#fff;
+  border:0;
+  border-radius:8px;
+  padding:11px 17px;
+  font:inherit;
+  cursor:pointer;
+}
+button.secondary{
+  background:#edf2f7;
+  color:#233a55;
+}
+button:hover{filter:brightness(.94)}
+h1{font-size:24px}
+h2{font-size:18px}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th,td{
+  text-align:left;
+  border-bottom:1px solid #e8edf2;
+  padding:13px 10px;
+  font-size:14px;
+}
+th{color:#617187;font-size:12px}
+tfoot td{
+  font-weight:700;
+  background:#f3f6fa;
+}
+.actions{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  flex-wrap:wrap;
+}
+#dashboard,#logout{display:none}
+@media(max-width:650px){
+  .grid{grid-template-columns:1fr}
+  .card{padding:18px}
+  header{padding:16px 20px}
+  main{margin:18px auto}
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <strong>◷ Team Summary</strong>
+  <div class="actions">
+    <a href="./">Back to Hours Tracker</a>
+    <span id="who"></span>
+    <button id="logout" class="secondary"
+            type="button">Log out</button>
+  </div>
+</header>
+
+<main>
+
+<section id="login" class="card login">
+  <h1>Admin access required</h1>
+  <p class="muted">
+    Enter User 1's private access code.
+    Other users cannot view the team summary.
+  </p>
+
+  <form id="loginForm">
+    <label for="code">Admin access code</label>
+    <input
+      id="code"
+      type="password"
+      autocomplete="off"
+      required
+      placeholder="Enter your access code"
+    >
+    <p>
+      <button type="submit">View team summary</button>
+    </p>
+    <p id="loginMsg" role="alert"></p>
+  </form>
+</section>
+
+<section id="dashboard">
+
+  <h1>Team Summary — Users 2–6</h1>
+  <p class="muted">
+    Totals from saved entries.
+    User 1's entries are excluded.
+  </p>
+
+  <div class="grid">
+
+    <div class="stat">
+      <span class="muted">Total team hours</span>
+      <strong id="totalHours">0.00</strong>
+    </div>
+
+    <div class="stat">
+      <span class="muted">Total Value In</span>
+      <strong id="totalIn">0.00</strong>
+    </div>
+
+    <div class="stat">
+      <span class="muted">Total Value Out</span>
+      <strong id="totalOut">0.00</strong>
+    </div>
+
+  </div>
+
+  <section class="card">
+    <div class="actions" style="justify-content:space-between">
+      <h2>Totals by user</h2>
+      <button id="refresh" type="button"
+              class="secondary">Refresh</button>
+    </div>
+
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>User</th>
+            <th>Total Hours</th>
+            <th>Total Value In</th>
+            <th>Total Value Out</th>
+            <th>Entries</th>
+          </tr>
+        </thead>
+
+        <tbody id="rows"></tbody>
+
+        <tfoot>
+          <tr>
+            <td>Grand Total</td>
+            <td id="grandHours">0.00</td>
+            <td id="grandIn">0.00</td>
+            <td id="grandOut">0.00</td>
+            <td id="grandCount">0</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <p id="status" class="muted" role="status"></p>
+  </section>
+
+</section>
+</main>
+
+<script>
+'use strict';
+
+// Public endpoint only. Never put secret keys here.
+const SUPABASE_PROJECT_URL =
+  'https://fjuyllxjjpkcnwvhkkgt.supabase.co';
+
+const API_URL =
+  `${SUPABASE_PROJECT_URL}/functions/v1/hours-api`;
+
+const $ = id => document.getElementById(id);
+
+const number = n => Number(n || 0).toFixed(2);
+
+const escapeHtml = s =>
+  String(s ?? '').replace(/[&<>"']/g, c => ({
+    '&':'&amp;',
+    '<':'&lt;',
+    '>':'&gt;',
+    '"':'&quot;',
+    "'":'&#39;'
+  }[c]));
+
+let accessCode = '';
+let admin = null;
+
+// API REQUEST
+async function call(action) {
+  const res = await fetch(API_URL, {
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json'
+    },
+    body:JSON.stringify({
+      action,
+      code:accessCode
+    })
+  });
+
+  let data;
+
+  try {
+    data = await res.json();
+  } catch {
+    throw Error('Unable to contact server');
+  }
+
+  if (!res.ok) {
+    throw Error(data.error || `Request failed (${res.status})`);
+  }
+
+  return data;
+}
+
+// LOGOUT
+function logout() {
+  accessCode = '';
+  admin = null;
+
+  $('code').value = '';
+  $('who').textContent = '';
+  $('logout').style.display = 'none';
+  $('dashboard').style.display = 'none';
+  $('login').style.display = 'block';
+  $('rows').replaceChildren();
+  $('status').textContent = '';
+}
+
+$('logout').onclick = logout;
+
+// ADMIN LOGIN
+$('loginForm').addEventListener('submit', async e => {
+  e.preventDefault();
+
+  $('loginMsg').textContent = 'Checking admin access…';
+  accessCode = $('code').value.trim();
+
+  try {
+    const data = await call('login');
+
+    // Reject Users 2–6.
+    if (data.user?.is_admin !== true) {
+      throw Error(
+        'Access denied. Only User 1 can view this summary.'
+      );
+    }
+
+    admin = data.user;
+
+    // The API verifies the code again for this request.
+    await load();
+
+    $('code').value = '';
+    $('loginMsg').textContent = '';
+    $('who').textContent = admin.name;
+
+    $('login').style.display = 'none';
+    $('dashboard').style.display = 'block';
+    $('logout').style.display = 'inline-block';
+
+  } catch (err) {
+    logout();
+    $('loginMsg').textContent = err.message;
+    $('loginMsg').className = 'error';
+  }
+});
+
+// LOAD AND CALCULATE TEAM TOTALS
+async function load() {
+  if (!admin || admin.is_admin !== true) {
+    throw Error('Admin access required');
+  }
+
+  const data = await call('list');
+
+  if (data.user?.is_admin !== true) {
+    throw Error('Admin access denied by server');
+  }
+
+  const all = data.entries || [];
+  const grouped = new Map();
+
+  for (const e of all) {
+
+    // Exclude User 1 from totals.
+    if (e.user_id === admin.id) continue;
+
+    const key = String(e.user_id);
+
+    if (!grouped.has(key)) {
+      grouped.set(key, {
+        name:e.team_users?.display_name || 'Unknown user',
+        hours:0,
+        valueIn:0,
+        valueOut:0,
+        count:0
+      });
+    }
+
+    const r = grouped.get(key);
+
+    r.hours += Number(e.hours || 0);
+    r.valueIn += Number(e.value_in || 0);
+    r.valueOut += Number(e.value_out || 0);
+    r.count++;
+  }
+
+  const rows = [...grouped.values()].sort(
+    (a,b) => a.name.localeCompare(
+      b.name, undefined, {numeric:true}
+    )
+  );
+
+  const total = rows.reduce(
+    (t,r) => ({
+      hours:t.hours + r.hours,
+      valueIn:t.valueIn + r.valueIn,
+      valueOut:t.valueOut + r.valueOut,
+      count:t.count + r.count
+    }),
+    {
+      hours:0,
+      valueIn:0,
+      valueOut:0,
+      count:0
+    }
+  );
+
+  // DISPLAY PER-USER TOTALS
+  $('rows').innerHTML = rows.map(r => `
+    <tr>
+      <td>${escapeHtml(r.name)}</td>
+      <td>${number(r.hours)}</td>
+      <td>${number(r.valueIn)}</td>
+      <td>${number(r.valueOut)}</td>
+      <td>${r.count}</td>
+    </tr>
+  `).join('') ||
+  '<tr><td colspan="5">No team entries yet.</td></tr>';
+
+  // DISPLAY GRAND TOTALS
+  $('totalHours').textContent =
+    $('grandHours').textContent = number(total.hours);
+
+  $('totalIn').textContent =
+    $('grandIn').textContent = number(total.valueIn);
+
+  $('totalOut').textContent =
+    $('grandOut').textContent = number(total.valueOut);
+
+  $('grandCount').textContent = String(total.count);
+
+  $('status').textContent =
+    `Summary based on ${total.count} entries from ${rows.length} team members.` +
+    (all.length >= 1000
+      ? ' Warning: The API returned its 1,000-entry limit. Totals may be incomplete.'
+      : '');
+}
+
+// REFRESH
+$('refresh').onclick = async () => {
+  try {
+    await load();
+    $('status').className = 'muted';
+  } catch (err) {
+    $('status').textContent = err.message;
+    $('status').className = 'error';
+  }
+};
+</script>
+
+</body>
+</html>
